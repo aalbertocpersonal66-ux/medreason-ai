@@ -1,0 +1,84 @@
+{
+  "id": "acs-001",
+  "title": "Dolor torácico agudo",
+  "specialty": "Cardiología / Urgencias",
+  "difficulty": "Ciclo clínico",
+  "version": "1.0.0",
+  "patient_script": {
+    "name": "Carlos M.",
+    "age": 58,
+    "sex": "masculino",
+    "chief_complaint": "Dolor torácico desde hace 60 minutos",
+    "facts": {
+      "onset": "60 minutos",
+      "location": "retroesternal",
+      "character": "opresivo",
+      "radiation": "brazo izquierdo y mandíbula",
+      "severity": "8/10",
+      "associated": [
+        "diaforesis",
+        "náuseas"
+      ],
+      "history": [
+        "hipertensión"
+      ],
+      "medication": [
+        "enalapril"
+      ],
+      "smoking": "20 paquetes-año"
+    }
+  },
+  "physical_exam": {
+    "bp": "145/90 mmHg",
+    "hr": "104 lpm",
+    "rr": "22 rpm",
+    "spo2": "96% aire ambiente",
+    "temperature": "36.5 °C",
+    "cardiac": "taquicardia, sin soplos evidentes",
+    "lungs": "sin crepitantes"
+  },
+  "tests": {
+    "ecg": "Elevación del ST en V1-V4",
+    "hs_troponin_0": "42 ng/L",
+    "hs_troponin_2h": "680 ng/L",
+    "hemoglobin": "14.2 g/dL",
+    "platelets": "245000/mm3",
+    "creatinine": "1.0 mg/dL",
+    "glucose": "154 mg/dL",
+    "potassium": "4.2 mEq/L"
+  },
+  "answer_key": {
+    "primary": "IAMCEST anterior, probable territorio DA",
+    "differentials": [
+      "disección aórtica",
+      "pericarditis",
+      "TEP",
+      "neumotórax",
+      "reflujo gastroesofágico"
+    ],
+    "management": [
+      "monitorización",
+      "activar reperfusión",
+      "antiagregación según estrategia",
+      "anticoagulación según estrategia",
+      "estatina alta intensidad",
+      "evitar oxígeno rutinario con SpO2 normal"
+    ],
+    "complications": [
+      "TV/FV",
+      "insuficiencia cardíaca",
+      "shock cardiogénico",
+      "rotura mecánica",
+      "trombo ventricular izquierdo"
+    ]
+  },
+  "stages": [
+    "anamnesis",
+    "examen físico",
+    "estudios",
+    "diferenciales",
+    "tratamiento",
+    "evolución",
+    "debrief"
+  ]
+}
