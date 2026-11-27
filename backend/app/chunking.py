@@ -78,6 +78,10 @@ def chunk_text(text: str, max_chars: int = 1200, overlap: int = 180) -> list[dic
                     previous = "\n\n".join(current_parts)
                     flush()
                     tail = previous[-overlap:].strip() if overlap else ""
+                    # O overlap também precisa caber no limite máximo do novo chunk.
+                    available_tail = max(0, max_chars - len(piece) - 2)
+                    if len(tail) > available_tail:
+                        tail = tail[-available_tail:] if available_tail else ""
                     if tail:
                         current_parts = [tail]
                         current_length = len(tail)
