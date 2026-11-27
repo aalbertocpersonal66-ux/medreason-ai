@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useState,type FormEvent} from "react";
 
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 type Doc={id:string;filename:string;extension:string;discipline:string;topic:string;document_type:string;author:string;year:string;page_count:number;size_bytes:number};
@@ -25,9 +25,9 @@ export default function BibliotecaPage(){
   if(!response.ok){let message="Error de comunicación con la API";try{const body=await response.json();message=body.detail||message}catch{}throw new Error(message)}
   return response.json();
  }
- async function refresh(){const result=await api("/library/documents");setDocs(result.documents||[])}
+ async function refresh(){const result=await api("/library/documents");setDocs(result.documents||[]);setError("")}
  useEffect(()=>{refresh().catch(e=>setError(e.message))},[]);
- async function upload(e:React.FormEvent<HTMLFormElement>){
+ async function upload(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!file)return;const formElement=e.currentTarget;
   try{setBusy(true);setError("");setNotice("");const body=new FormData();body.append("file",file);body.append("discipline",discipline);body.append("topic",topic);body.append("document_type",kind);body.append("author",author);body.append("year",year);await api("/library/documents",{method:"POST",body});setFile(null);setTopic("");setAuthor("");setYear("");formElement.reset();await refresh();setNotice("Documento añadido correctamente.")}
   catch(err:any){setError(err.message)}finally{setBusy(false)}
