@@ -27,8 +27,8 @@ export default function BibliotecaPage(){
  async function refresh(){const result=await api("/library/documents");setDocs(result.documents||[])}
  useEffect(()=>{refresh().catch(e=>setError(e.message))},[]);
  async function upload(e:React.FormEvent<HTMLFormElement>){
-  e.preventDefault();if(!file)return;
-  try{setBusy(true);setError("");setNotice("");const body=new FormData();body.append("file",file);body.append("discipline",discipline);body.append("topic",topic);body.append("document_type",kind);body.append("author",author);body.append("year",year);await api("/library/documents",{method:"POST",body});setFile(null);setTopic("");setAuthor("");setYear("");e.currentTarget.reset();await refresh();setNotice("Documento añadido correctamente.")}
+  e.preventDefault();if(!file)return;const formElement=e.currentTarget;
+  try{setBusy(true);setError("");setNotice("");const body=new FormData();body.append("file",file);body.append("discipline",discipline);body.append("topic",topic);body.append("document_type",kind);body.append("author",author);body.append("year",year);await api("/library/documents",{method:"POST",body});setFile(null);setTopic("");setAuthor("");setYear("");formElement.reset();await refresh();setNotice("Documento añadido correctamente.")}
   catch(err:any){setError(err.message)}finally{setBusy(false)}
  }
  async function read(id:string){try{setBusy(true);setError("");setSelected(await api("/library/documents/"+id))}catch(e:any){setError(e.message)}finally{setBusy(false)}}
