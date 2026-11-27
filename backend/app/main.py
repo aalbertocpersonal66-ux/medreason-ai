@@ -47,7 +47,7 @@ def get_case(case_id:str, mode:str='exam'):
 def create_attempt(case_id:str='acs-001',mode:str='exam',level:str='clinical'):
  if case_id!='acs-001': raise HTTPException(404,'Caso no encontrado')
  if mode not in ('learning','exam') or level not in ('basic','clinical','internship'): raise HTTPException(400,'Configuración inválida')
- aid=str(uuid4()); attempts[aid]={"case_id":case_id,"mode":mode,"level":level,"stage":STAGES[0],"actions":[],"status":"active"}
+ aid=str(uuid4()); attempts[aid]={"case_id":case_id,"mode":mode,"level":level,"stage":STAGES[0],"actions":[],"conversation_history":[],"status":"active"}
  return {"attempt_id":aid,"stage":STAGES[0],"mode":mode,"level":level}
 
 @app.post('/patient/ask')
@@ -55,7 +55,8 @@ def ask_patient(data:Ask):
  a=attempts.get(data.attempt_id)
  if not a: raise HTTPException(404,'Intento no encontrado')
  if a['stage']!='anamnesis': raise HTTPException(409,'La anamnesis está cerrada')
- result=respond(data.question)
+ result=respond(data.question,load_case().get('patient_script',{}),a.get('conversation_history',[]))
+ a.setdefault('conversation_history',[]).append({"question":data.question,"answer":result.get('answer',''),"facts_retrieved":result.get('facts_retrieved',[])})
  if a['mode']=='learning' and result.get('facts_retrieved'):
   result['teaching_note']='Buena pregunta: registra el dato y relaciónalo con la probabilidad pretest.'
  a['actions'].append({"type":"patient_question","question":data.question,"result":result})
