@@ -5,7 +5,8 @@ const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 type Doc={id:string;filename:string;extension:string;discipline:string;topic:string;document_type:string;author:string;year:string;page_count:number;size_bytes:number};
 
 export default function BibliotecaPage(){
- const [docs,setDocs]=useState<Doc[]>([]);\n const [accessToken,setAccessToken]=useState("");
+ const [docs,setDocs]=useState<Doc[]>([]);
+ const [accessToken,setAccessToken]=useState("");
  const [file,setFile]=useState<File|null>(null);
  const [discipline,setDiscipline]=useState("Clínica Médica");
  const [topic,setTopic]=useState("");
@@ -38,7 +39,8 @@ export default function BibliotecaPage(){
   <header className="flex flex-wrap items-center justify-between gap-3"><div><a href="/" className="text-sm text-cyan-300 hover:underline">← Volver a MedReason AI</a><p className="mt-3 text-sm text-cyan-400">Medical Knowledge Base</p><h1 className="text-3xl font-bold">Biblioteca médica</h1><p className="mt-2 text-sm text-slate-400">Gestiona artículos, libros, capítulos y materiales PDF o DOCX.</p></div><span className="rounded-full bg-cyan-950 px-3 py-2 text-sm text-cyan-300">{docs.length} documento(s)</span></header>
   {error&&<div className="rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</div>}
   {notice&&<div className="rounded-lg border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-200">{notice}</div>}
-  <section className={panel}><h2 className="text-xl font-semibold">Acceso privado</h2><p className="mt-1 text-sm text-slate-400">Introduce la clave configurada en el backend de Render (LIBRARY_ADMIN_TOKEN). No la compartas.</p><input type="password" value={accessToken} onChange={e=>setAccessToken(e.target.value)} placeholder="Clave de acceso de la biblioteca" className="mt-3 block w-full rounded-lg bg-slate-800 p-3 md:max-w-xl"/></section>\n  <section className={panel}><h2 className="text-xl font-semibold">Añadir documento</h2><form onSubmit={upload} className="mt-4 grid gap-4 md:grid-cols-2">
+  <section className={panel}><h2 className="text-xl font-semibold">Acceso privado</h2><p className="mt-1 text-sm text-slate-400">Introduce la clave configurada en el backend de Render (LIBRARY_ADMIN_TOKEN). No la compartas.</p><input type="password" value={accessToken} onChange={e=>setAccessToken(e.target.value)} placeholder="Clave de acceso de la biblioteca" className="mt-3 block w-full rounded-lg bg-slate-800 p-3 md:max-w-xl"/></section>
+  <section className={panel}><h2 className="text-xl font-semibold">Añadir documento</h2><form onSubmit={upload} className="mt-4 grid gap-4 md:grid-cols-2">
    <label className="text-sm text-slate-300 md:col-span-2">Archivo PDF o DOCX · máximo 30 MB<input required type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={e=>setFile(e.target.files?.[0]||null)} className="mt-2 block w-full rounded-lg border border-slate-700 bg-slate-800 p-3"/></label>
    <label className="text-sm text-slate-300">Disciplina<input required minLength={2} maxLength={80} value={discipline} onChange={e=>setDiscipline(e.target.value)} className="mt-1 block w-full rounded-lg bg-slate-800 p-3"/></label>
    <label className="text-sm text-slate-300">Tema<input maxLength={120} value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Ej.: Síndrome coronario agudo" className="mt-1 block w-full rounded-lg bg-slate-800 p-3"/></label>
