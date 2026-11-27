@@ -179,18 +179,12 @@ def read_docx(file_path: Path) -> str:
         ) from exc
 
 
+
 @app.get("/lessons")
 def list_lessons():
     lessons = []
 
-    if AULAS_DIR.exists():
-        for file in sorted(AULAS_DIR.glob("*.md")):
-            lessons.append({
-                "id": file.stem,
-                "title": file.stem.replace("_", " ").title(),
-                "type": "markdown"
-            })
-
+    # Prioridad 1: módulos médicos con documentos Word
     if MEDICINA_DIR.exists():
         for folder in sorted(MEDICINA_DIR.iterdir()):
             if folder.is_dir():
@@ -204,11 +198,46 @@ def list_lessons():
                         "documents_count": len(documents)
                     })
 
+    existing_ids = {lesson["id"] for lesson in lessons}
+
+    # Prioridad 2: aulas Markdown sin duplicados
+    if AULAS_DIR.exists():
+        for file in sorted(AULAS_DIR.glob("*.md")):
+            if file.stem not in existing_ids:
+                lessons.append({
+                    "id": file.stem,
+                    "title": file.stem.replace("_", " ").title(),
+                    "type": "markdown"
+                })
+
     return {"lessons": lessons}
 
 
 @app.get("/lessons/{lesson_id}")
 def get_lesson(lesson_id: str):
+
+    # Prioridad 1: módulo médico con documentos Word
+    module_dir = (MEDICINA_DIR / lesson_id).resolve()
+
+    if module_dir.parent == MEDICINA_DIR.resolve() and module_dir.is_dir():
+        documents = []
+
+        for file in sorted(module_dir.glob("*.docx")):
+            documents.append({
+                "title": file.stem.replace("_", " "),
+                "source": file.name,
+                "content": read_docx(file)
+            })
+
+        if documents:
+            return {
+                "id": lesson_id,
+                "title": lesson_id.replace("_", " ").title(),
+                "type": "docx",
+                "documents": documents
+            }
+
+    # Prioridad 2: aula Markdown
     md_file = (AULAS_DIR / f"{lesson_id}.md").resolve()
 
     if md_file.parent == AULAS_DIR.resolve() and md_file.is_file():
@@ -218,54 +247,5 @@ def get_lesson(lesson_id: str):
             "content": md_file.read_text(encoding="utf-8")
         }
 
-    module_dir = (MEDICINA_DIR / lesson_id).resolve()
+    raise HTTPException(404, "Aula ou módulo não encontrado")
 
-    if module_dir.parent != MEDICINA_DIR.resolve() or not module_dir.is_dir():
-        raise HTTPException(404, "Aula ou módulo não encontrado")
-
-    documents = []
-
-    for file in sorted(module_dir.glob("*.docx")):
-        documents.append({
-            "title": file.stem.replace("_", " "),
-            "source": file.name,
-            "content": read_docx(file)
-        })
-
-    if not documents:
-        raise HTTPException(404, "Nenhum documento encontrado neste módulo")
-
-    return {
-        "id": lesson_id,
-        "title": lesson_id.replace("_", " ").title(),
-        "type": "docx",
-        "documents": documents
-    }
-
-
-@app.get("/lessons")
-def list_lessons():
-    if not CONTENT_DIR.exists():
-        return {"lessons": []}
-
-    lessons = []
-    for file in CONTENT_DIR.glob("*.md"):
-        lessons.append({
-            "id": file.stem,
-            "title": file.stem.replace("_", " ").title()
-        })
-
-    return {"lessons": lessons}
-
-
-@app.get("/lessons/{lesson_id}")
-def get_lesson(lesson_id: str):
-    file = CONTENT_DIR / f"{lesson_id}.md"
-
-    if not file.is_file() or file.parent != CONTENT_DIR:
-        raise HTTPException(404, "Aula não encontrada")
-
-    return {
-        "id": lesson_id,
-        "content": file.read_text(encoding="utf-8")
-    }
