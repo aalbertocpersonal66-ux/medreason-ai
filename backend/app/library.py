@@ -3,6 +3,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 from datetime import datetime, timezone
 from urllib.parse import quote
 from uuid import uuid4
@@ -109,7 +110,7 @@ def _extract_docx(content: bytes) -> tuple[str, int]:
     return "\\n\\n".join(parts), len(parts)
 
 
-def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int]]:
+def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int], list[dict]]:
     """Extrai texto nativo e aplica OCR em páginas sem texto útil."""
     reader = PdfReader(io.BytesIO(content))
     if reader.is_encrypted:
@@ -122,6 +123,7 @@ def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int]
 
     ocr_pages = []
     ocr_failed_pages = []
+    ocr_errors = []
     page_text = []
 
     try:
@@ -150,8 +152,13 @@ def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int]
                         ocr_pages.append(number)
                     else:
                         ocr_failed_pages.append(number)
-                except Exception:
+                except Exception as exc:
                     ocr_failed_pages.append(number)
+                    ocr_errors.append({
+                        "page": number,
+                        "error_type": type(exc).__name__,
+                        "message": str(exc)[:240],
+                    })
 
             if page_content:
                 page_text.append(f"[Página {number}]\\n{page_content}")
@@ -160,12 +167,12 @@ def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int]
     finally:
         rendered_pdf.close()
 
-    return "\\n\\n".join(page_text), len(reader.pages), ocr_pages, ocr_failed_pages
+    return "\\n\\n".join(page_text), len(reader.pages), ocr_pages, ocr_failed_pages, ocr_errors
 
 
 def _extract_pdf(content: bytes) -> tuple[str, int]:
     """Compatibilidade com os pontos da API que só precisam de texto e páginas."""
-    extracted_text, page_count, _, _ = _extract_pdf_details(content)
+    extracted_text, page_count, _, _, _ = _extract_pdf_details(content)
     return extracted_text, page_count
 
 def _public_metadata(metadata: dict) -> dict:
@@ -211,10 +218,11 @@ async def upload_document(
         raise HTTPException(status_code=413, detail="O tamanho máximo permitido é 30 MB")
     ocr_pages = []
     ocr_failed_pages = []
+    ocr_errors = []
     if extension == ".pdf":
         if not content.startswith(b"%PDF-"):
             raise HTTPException(status_code=415, detail="O arquivo não parece ser um PDF válido")
-        extracted_text, page_count, ocr_pages, ocr_failed_pages = _extract_pdf_details(content)
+        extracted_text, page_count, ocr_pages, ocr_failed_pages, ocr_errors = _extract_pdf_details(content)
     else:
         try:
             extracted_text, page_count = _extract_docx(content)
@@ -237,7 +245,8 @@ async def upload_document(
         "text_characters": len(extracted_text),
         "ocr_pages": ocr_pages,
         "ocr_failed_pages": ocr_failed_pages,
-        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "ocr_errors": ocr_errors,
+        "uploaded_at: datetime.now(timezone.utc).isoformat(),
         "stored_name": stored_name,
     }
     file_path = _object_path("files", stored_name)
@@ -318,9 +327,10 @@ def get_document_chunks(
         ocr_pages = []
         ocr_failed_pages = []
         if metadata["extension"] == "pdf":
-            extracted_text, _, ocr_pages, ocr_failed_pages = _extract_pdf_details(content)
+            extracted_text, _, ocr_pages, ocr_failed_pages, ocr_errors = _extract_pdf_details(content)
         else:
             extracted_text, _ = _extract_docx(content)
+            ocr_errors = []
     except HTTPException:
         raise
     except Exception as exc:
@@ -331,6 +341,11 @@ def get_document_chunks(
         "document_id": document_id,
         "ocr_pages": ocr_pages,
         "ocr_failed_pages": ocr_failed_pages,
+        "ocr_errors": ocr_errors,
+        "ocr_engine": {
+            "tesseract_path": shutil.which("tesseract"),
+            "available": shutil.which("tesseract") is not None,
+        },
         "filename": metadata["filename"],
         "discipline": metadata["discipline"],
         "topic": metadata["topic"],
