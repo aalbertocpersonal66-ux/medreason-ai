@@ -146,7 +146,102 @@ def demo_evaluate():
  Criterion('Comunicación y justificación',.10,3,['Justificó prioridad'],'Comunicación clara.')]
  return evaluate(cs,False)
 
-CONTENT_DIR = Path(__file__).resolve().parent / "content" / "aulas"
+
+BASE_CONTENT_DIR = Path(__file__).resolve().parent / "content"
+AULAS_DIR = BASE_CONTENT_DIR / "aulas"
+MEDICINA_DIR = BASE_CONTENT_DIR / "medicina"
+
+
+def read_docx(file_path: Path) -> str:
+    try:
+        doc = Document(str(file_path))
+        content = []
+
+        for paragraph in doc.paragraphs:
+            text = paragraph.text.strip()
+            if text:
+                content.append(text)
+
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [
+                    cell.text.strip().replace("\n", " ")
+                    for cell in row.cells
+                ]
+                content.append(" | ".join(cells))
+
+        return "\n\n".join(content)
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao ler documento Word: {file_path.name}"
+        ) from exc
+
+
+@app.get("/lessons")
+def list_lessons():
+    lessons = []
+
+    if AULAS_DIR.exists():
+        for file in sorted(AULAS_DIR.glob("*.md")):
+            lessons.append({
+                "id": file.stem,
+                "title": file.stem.replace("_", " ").title(),
+                "type": "markdown"
+            })
+
+    if MEDICINA_DIR.exists():
+        for folder in sorted(MEDICINA_DIR.iterdir()):
+            if folder.is_dir():
+                documents = list(folder.glob("*.docx"))
+
+                if documents:
+                    lessons.append({
+                        "id": folder.name,
+                        "title": folder.name.replace("_", " ").title(),
+                        "type": "docx",
+                        "documents_count": len(documents)
+                    })
+
+    return {"lessons": lessons}
+
+
+@app.get("/lessons/{lesson_id}")
+def get_lesson(lesson_id: str):
+    md_file = (AULAS_DIR / f"{lesson_id}.md").resolve()
+
+    if md_file.parent == AULAS_DIR.resolve() and md_file.is_file():
+        return {
+            "id": lesson_id,
+            "type": "markdown",
+            "content": md_file.read_text(encoding="utf-8")
+        }
+
+    module_dir = (MEDICINA_DIR / lesson_id).resolve()
+
+    if module_dir.parent != MEDICINA_DIR.resolve() or not module_dir.is_dir():
+        raise HTTPException(404, "Aula ou módulo não encontrado")
+
+    documents = []
+
+    for file in sorted(module_dir.glob("*.docx")):
+        documents.append({
+            "title": file.stem.replace("_", " "),
+            "source": file.name,
+            "content": read_docx(file)
+        })
+
+    if not documents:
+        raise HTTPException(404, "Nenhum documento encontrado neste módulo")
+
+    return {
+        "id": lesson_id,
+        "title": lesson_id.replace("_", " ").title(),
+        "type": "docx",
+        "documents": documents
+    }
+
 
 @app.get("/lessons")
 def list_lessons():
