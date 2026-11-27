@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
 from pydantic import BaseModel, Field
 from uuid import uuid4
 from .patient_agent import respond
@@ -143,3 +144,32 @@ def demo_evaluate():
  Criterion('Manejo terapéutico',.20,3,['Activó circuito de reperfusión'],'Explicitar estrategia y contraindicaciones.'),
  Criterion('Comunicación y justificación',.10,3,['Justificó prioridad'],'Comunicación clara.')]
  return evaluate(cs,False)
+
+CONTENT_DIR = Path(__file__).resolve().parent / "content" / "aulas"
+
+@app.get("/lessons")
+def list_lessons():
+    if not CONTENT_DIR.exists():
+        return {"lessons": []}
+
+    lessons = []
+    for file in CONTENT_DIR.glob("*.md"):
+        lessons.append({
+            "id": file.stem,
+            "title": file.stem.replace("_", " ").title()
+        })
+
+    return {"lessons": lessons}
+
+
+@app.get("/lessons/{lesson_id}")
+def get_lesson(lesson_id: str):
+    file = CONTENT_DIR / f"{lesson_id}.md"
+
+    if not file.is_file() or file.parent != CONTENT_DIR:
+        raise HTTPException(404, "Aula não encontrada")
+
+    return {
+        "id": lesson_id,
+        "content": file.read_text(encoding="utf-8")
+    }
