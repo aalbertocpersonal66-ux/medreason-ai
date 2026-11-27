@@ -11,6 +11,7 @@ import httpx
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pypdf import PdfReader
 from docx import Document
+from .chunking import chunk_text
 
 router = APIRouter(prefix="/library", tags=["Biblioteca médica"])
 MAX_FILE_SIZE = 30 * 1024 * 1024
@@ -240,6 +241,44 @@ def get_document(document_id: str, x_library_token: str = Header(default="", ali
     else:
         extracted_text, _ = _extract_docx(content)
     return {**_public_metadata(metadata), "content": extracted_text}
+
+
+@router.get("/documents/{document_id}/chunks")
+def get_document_chunks(
+    document_id: str,
+    max_chars: int = 1200,
+    overlap: int = 180,
+    x_library_token: str = Header(default="", alias="X-Library-Token"),
+):
+    """Recupera fragmentos com referência às páginas, prontos para indexação RAG."""
+    _authorize(x_library_token)
+    if max_chars < 200 or max_chars > 4000:
+        raise HTTPException(status_code=422, detail="max_chars deve estar entre 200 e 4000")
+    if overlap < 0 or overlap >= max_chars:
+        raise HTTPException(status_code=422, detail="overlap deve ser menor que max_chars")
+    metadata = _load_metadata(document_id)
+    content = _download_object(_object_path("files", metadata["stored_name"]))
+    try:
+        if metadata["extension"] == "pdf":
+            extracted_text, _ = _extract_pdf(content)
+        else:
+            extracted_text, _ = _extract_docx(content)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Não foi possível extrair o texto para fragmentação") from exc
+
+    chunks = chunk_text(extracted_text, max_chars=max_chars, overlap=overlap)
+    return {
+        "document_id": document_id,
+        "filename": metadata["filename"],
+        "discipline": metadata["discipline"],
+        "topic": metadata["topic"],
+        "chunk_count": len(chunks),
+        "max_chars": max_chars,
+        "overlap": overlap,
+        "chunks": chunks,
+    }
 
 
 @router.delete("/documents/{document_id}")
