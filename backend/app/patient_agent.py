@@ -11,15 +11,15 @@ def _normalize(value: str) -> str:
 
 # Intenciones clínicas y formulaciones frecuentes. Una pregunta puede activar varias.
 INTENTS = {
-    "onset": (("cuando", "desde cuando", "hace cuanto", "cuanto tiempo", "inicio", "empezo", "comenzo", "duracion", "hace cuanto tiempo"),),
-    "location": (("donde", "en que parte", "en que lugar", "localizacion", "ubicacion", "sitio"),),
-    "character": (("como es", "que tipo", "describa", "describir", "caracter", "sensacion", "opresivo", "punzante", "quemante", "presion"),),
+    "onset": (("cuando", "cuando fue", "comenzo cuando", "desde cuando", "desde que momento", "hace cuanto", "cuanto tiempo", "inicio", "empezo", "comenzo", "duracion", "hace cuanto tiempo"),),
+    "location": (("donde", "donde siente", "donde le duele", "en que parte", "en que lugar", "localizacion", "ubicacion", "sitio"),),
+    "character": (("como es", "como describiria", "que tipo", "describa", "describir", "caracter", "sensacion", "opresivo", "punzante", "quemante", "presion", "cuenteme sobre el dolor", "como siente el dolor"),),
     "radiation": (("irradia", "se extiende", "se corre", "hacia donde", "brazo", "mandibula", "cuello", "espalda"),),
-    "severity": (("cuanto duele", "intensidad", "escala", "del uno al diez", "de 0 a 10", "del 1 al 10", "que tan fuerte", "tan intenso"),),
+    "severity": (("cuanto duele", "intensidad", "escala", "del uno al diez", "de 0 a 10", "del 1 al 10", "que tan fuerte", "tan intenso", "es fuerte", "es intenso", "nivel de dolor"),),
     "associated": (("otros sintomas", "sintomas asociados", "acompan", "ademas", "algo mas", "nausea", "vomito", "sudor", "transpir", "falta de aire", "disnea", "mareo"),),
     "history": (("antecedentes", "enfermedades", "padece", "sufre", "hipertension", "presion alta", "diabetes", "problemas cardiacos", "enfermedad previa"),),
-    "medication": (("medicamento", "medicacion", "que toma", "toma algun", "tratamiento habitual", "enalapril", "pastillas", "farmaco"),),
-    "smoking": (("fuma", "fumador", "tabaco", "cigarrillo", "paquetes ano", "paquetes al ano", "dejo de fumar"),),
+    "medication": (("medicamento", "medicacion", "que toma", "toma algun", "toma remedios", "que remedio", "tratamiento habitual", "enalapril", "pastillas", "farmaco"),),
+    "smoking": (("fuma", "fumador", "tabaco", "cigarrillo", "paquetes ano", "paquetes al ano", "dejo de fumar", "fuma actualmente"),),
 }
 
 def _contains(q: str, phrase: str) -> bool:
@@ -78,6 +78,12 @@ def respond(question: str, patient_script: dict | None = None, history: list | N
 
     answers = []
     retrieved = []
+    # No convertir un dato ausente en una respuesta negativa ni confundir
+    # una enfermedad específica preguntada con otro antecedente documentado.
+    if "diabetes" in q and "diabetes" not in " ".join(_normalize(x) for x in facts.get("history", [])):
+        answers.append("No tengo ese dato confirmado en mi historia; el antecedente registrado es hipertensión.")
+        retrieved.append("history")
+        matched = [x for x in matched if x != "history"]
     for intent in matched:
         answer = _answer_for(intent, facts)
         if answer:
