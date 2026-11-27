@@ -14,6 +14,17 @@ from datetime import date
 from docx import Document
 
 app=FastAPI(title="MedReason AI API",version="0.2.0")
+
+@app.get("/")
+def root():
+    return {
+        "service": "MedReason AI API",
+        "status": "online",
+        "version": app.version,
+        "documentation": "/docs",
+        "health": "/health",
+        "catalog": "/catalog"
+    }
 # Demo pública sin autenticación: no se envían cookies ni credenciales.
 # En producción con usuarios, restringir origins y activar autenticación.
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=False,allow_methods=["*"],allow_headers=["*"])
