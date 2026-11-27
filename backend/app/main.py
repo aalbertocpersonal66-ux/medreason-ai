@@ -152,25 +152,48 @@ AULAS_DIR = BASE_CONTENT_DIR / "aulas"
 MEDICINA_DIR = BASE_CONTENT_DIR / "medicina"
 
 
-def read_docx(file_path: Path) -> str:
+def read_docx(file_path: Path) -> dict:
+    """Extrai o DOCX em blocos ordenados, preservando títulos, listas e tabelas."""
     try:
+        from docx.text.paragraph import Paragraph
+        from docx.table import Table
+
         doc = Document(str(file_path))
-        content = []
+        blocks = []
+        plain_text = []
 
-        for paragraph in doc.paragraphs:
-            text = paragraph.text.strip()
-            if text:
-                content.append(text)
+        # iter_inner_content mantém a ordem original entre parágrafos e tabelas.
+        for item in doc.iter_inner_content():
+            if isinstance(item, Paragraph):
+                text = item.text.strip()
+                if not text:
+                    continue
 
-        for table in doc.tables:
-            for row in table.rows:
-                cells = [
-                    cell.text.strip().replace("\n", " ")
-                    for cell in row.cells
-                ]
-                content.append(" | ".join(cells))
+                style_name = (item.style.name or "").strip()
+                style_lower = style_name.lower()
 
-        return "\n\n".join(content)
+                if style_lower.startswith("heading") or style_lower.startswith("título"):
+                    digits = "".join(ch for ch in style_name if ch.isdigit())
+                    level = int(digits) if digits else 1
+                    blocks.append({"type": "heading", "level": min(max(level, 1), 3), "text": text})
+                elif "list" in style_lower or "lista" in style_lower or item._p.pPr is not None and item._p.pPr.numPr is not None:
+                    blocks.append({"type": "list_item", "text": text})
+                else:
+                    blocks.append({"type": "paragraph", "text": text})
+
+                plain_text.append(text)
+
+            elif isinstance(item, Table):
+                rows = []
+                for row in item.rows:
+                    cells = [cell.text.strip().replace("\\n", " ") for cell in row.cells]
+                    if any(cells):
+                        rows.append(cells)
+                        plain_text.append(" | ".join(cells))
+                if rows:
+                    blocks.append({"type": "table", "rows": rows})
+
+        return {"content": "\\n\\n".join(plain_text), "blocks": blocks}
 
     except Exception as exc:
         raise HTTPException(
@@ -223,10 +246,12 @@ def get_lesson(lesson_id: str):
         documents = []
 
         for file in sorted(module_dir.glob("*.docx")):
+            extracted = read_docx(file)
             documents.append({
                 "title": file.stem.replace("_", " "),
                 "source": file.name,
-                "content": read_docx(file)
+                "content": extracted["content"],
+                "blocks": extracted["blocks"]
             })
 
         if documents:
