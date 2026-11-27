@@ -315,8 +315,10 @@ def get_document_chunks(
     metadata = _load_metadata(document_id)
     content = _download_object(_object_path("files", metadata["stored_name"]))
     try:
+        ocr_pages = []
+        ocr_failed_pages = []
         if metadata["extension"] == "pdf":
-            extracted_text, _ = _extract_pdf(content)
+            extracted_text, _, ocr_pages, ocr_failed_pages = _extract_pdf_details(content)
         else:
             extracted_text, _ = _extract_docx(content)
     except HTTPException:
@@ -327,6 +329,8 @@ def get_document_chunks(
     chunks = chunk_text(extracted_text, max_chars=max_chars, overlap=overlap)
     return {
         "document_id": document_id,
+        "ocr_pages": ocr_pages,
+        "ocr_failed_pages": ocr_failed_pages,
         "filename": metadata["filename"],
         "discipline": metadata["discipline"],
         "topic": metadata["topic"],
