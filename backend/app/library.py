@@ -246,7 +246,7 @@ async def upload_document(
         "ocr_pages": ocr_pages,
         "ocr_failed_pages": ocr_failed_pages,
         "ocr_errors": ocr_errors,
-        "uploaded_at: datetime.now(timezone.utc).isoformat(),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "stored_name": stored_name,
     }
     file_path = _object_path("files", stored_name)
