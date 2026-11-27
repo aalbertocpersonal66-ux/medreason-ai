@@ -54,9 +54,13 @@ def _request(method: str, path: str, *, content=None, json_body=None, content_ty
         raise HTTPException(status_code=502, detail="Não foi possível conectar ao Supabase Storage.") from exc
     if response.is_error:
         try:
-            detail = response.json().get("message") or response.json().get("error") or response.text
+            payload = response.json()
+            detail = payload.get("message") or payload.get("error") or response.text
         except ValueError:
             detail = response.text
+        # Supabase commonly reports missing objects as HTTP 400 with "not found".
+        if response.status_code == 404 or (response.status_code == 400 and "not found" in str(detail).lower()):
+            raise HTTPException(status_code=404, detail="Objeto não encontrado no Supabase Storage")
         # Avoid exposing credentials or internal response headers.
         raise HTTPException(status_code=502, detail=f"Supabase Storage ({response.status_code}): {str(detail)[:400]}")
     return response
