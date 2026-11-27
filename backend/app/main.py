@@ -11,6 +11,7 @@ from .oral_exam import oral_session
 from .metrics import summarize_attempts
 from .planner import weekly_plan
 from datetime import date
+from docx import Document
 
 app=FastAPI(title="MedReason AI API",version="0.2.0")
 # Demo pública sin autenticación: no se envían cookies ni credenciales.
