@@ -152,6 +152,11 @@ def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int]
                         ocr_pages.append(number)
                     else:
                         ocr_failed_pages.append(number)
+                        ocr_errors.append({
+                            "page": number,
+                            "error_type": "EmptyOCRResult",
+                            "message": "Tesseract não reconheceu texto nesta página.",
+                        })
                 except Exception as exc:
                     ocr_failed_pages.append(number)
                     ocr_errors.append({
