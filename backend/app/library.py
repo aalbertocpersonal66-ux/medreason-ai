@@ -11,6 +11,9 @@ import httpx
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pypdf import PdfReader
 from docx import Document
+import fitz
+import pytesseract
+from PIL import Image
 from .chunking import chunk_text
 
 router = APIRouter(prefix="/library", tags=["Biblioteca médica"])
@@ -106,7 +109,8 @@ def _extract_docx(content: bytes) -> tuple[str, int]:
     return "\\n\\n".join(parts), len(parts)
 
 
-def _extract_pdf(content: bytes) -> tuple[str, int]:
+def _extract_pdf_details(content: bytes) -> tuple[str, int, list[int], list[int]]:
+    """Extrai texto nativo e aplica OCR em páginas sem texto útil."""
     reader = PdfReader(io.BytesIO(content))
     if reader.is_encrypted:
         try:
@@ -115,12 +119,54 @@ def _extract_pdf(content: bytes) -> tuple[str, int]:
                 raise ValueError("PDF protegido")
         except Exception as exc:
             raise HTTPException(status_code=422, detail="PDF protegido por senha não pode ser processado") from exc
-    page_text = []
-    for number, page in enumerate(reader.pages, start=1):
-        page_content = (page.extract_text() or "").strip()
-        page_text.append(f"[Página {number}]\\n{page_content}" if page_content else f"[Página {number}]\\n[Sem texto extraível; pode ser necessário OCR]")
-    return "\\n\\n".join(page_text), len(reader.pages)
 
+    ocr_pages = []
+    ocr_failed_pages = []
+    page_text = []
+
+    try:
+        rendered_pdf = fitz.open(stream=content, filetype="pdf")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Não foi possível renderizar o PDF para extração") from exc
+
+    try:
+        for number, page in enumerate(reader.pages, start=1):
+            page_content = (page.extract_text() or "").strip()
+
+            # Páginas digitalizadas normalmente não possuem camada de texto.
+            # O limiar também captura páginas com uma camada de texto quase vazia.
+            if len(page_content) < 40:
+                try:
+                    rendered_page = rendered_pdf.load_page(number - 1)
+                    pixmap = rendered_page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                    image = Image.open(io.BytesIO(pixmap.tobytes("png")))
+                    recognized = pytesseract.image_to_string(
+                        image,
+                        lang="spa+por",
+                        config="--psm 6",
+                    ).strip()
+                    if recognized:
+                        page_content = recognized
+                        ocr_pages.append(number)
+                    else:
+                        ocr_failed_pages.append(number)
+                except Exception:
+                    ocr_failed_pages.append(number)
+
+            if page_content:
+                page_text.append(f"[Página {number}]\\n{page_content}")
+            else:
+                page_text.append(f"[Página {number}]\\n[OCR sem resultado; revisar esta página]")
+    finally:
+        rendered_pdf.close()
+
+    return "\\n\\n".join(page_text), len(reader.pages), ocr_pages, ocr_failed_pages
+
+
+def _extract_pdf(content: bytes) -> tuple[str, int]:
+    """Compatibilidade com os pontos da API que só precisam de texto e páginas."""
+    extracted_text, page_count, _, _ = _extract_pdf_details(content)
+    return extracted_text, page_count
 
 def _public_metadata(metadata: dict) -> dict:
     return {key: value for key, value in metadata.items() if key not in {"stored_name", "metadata_name"}}
@@ -163,10 +209,12 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="O arquivo está vazio")
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="O tamanho máximo permitido é 30 MB")
+    ocr_pages = []
+    ocr_failed_pages = []
     if extension == ".pdf":
         if not content.startswith(b"%PDF-"):
             raise HTTPException(status_code=415, detail="O arquivo não parece ser um PDF válido")
-        extracted_text, page_count = _extract_pdf(content)
+        extracted_text, page_count, ocr_pages, ocr_failed_pages = _extract_pdf_details(content)
     else:
         try:
             extracted_text, page_count = _extract_docx(content)
@@ -187,6 +235,8 @@ async def upload_document(
         "size_bytes": len(content),
         "page_count": page_count,
         "text_characters": len(extracted_text),
+        "ocr_pages": ocr_pages,
+        "ocr_failed_pages": ocr_failed_pages,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "stored_name": stored_name,
     }
@@ -201,7 +251,13 @@ async def upload_document(
         except Exception:
             pass
         raise
-    return {**_public_metadata(metadata), "extraction_status": "text_extracted" if extracted_text.strip() else "ocr_required"}
+    if not extracted_text.strip():
+        extraction_status = "ocr_required"
+    elif ocr_failed_pages:
+        extraction_status = "ocr_partial"
+    else:
+        extraction_status = "text_extracted"
+    return {**_public_metadata(metadata), "extraction_status": extraction_status}
 
 
 @router.get("/documents")
