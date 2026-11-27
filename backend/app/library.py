@@ -52,10 +52,10 @@ def _extract_docx(path: Path) -> tuple[str, int]:
             parts.append(value)
     for table in doc.tables:
         for row in table.rows:
-            cells = [cell.text.strip().replace("\\n", " ") for cell in row.cells]
+            cells = [cell.text.strip().replace("\n", " ") for cell in row.cells]
             if any(cells):
                 parts.append(" | ".join(cells))
-    return "\\n\\n".join(parts), len(parts)
+    return "\n\n".join(parts), len(parts)
 
 
 def _extract_pdf(path: Path) -> tuple[str, int]:
@@ -68,8 +68,8 @@ def _extract_pdf(path: Path) -> tuple[str, int]:
     page_text = []
     for number, page in enumerate(reader.pages, start=1):
         text = (page.extract_text() or "").strip()
-        page_text.append(f"[Página {number}]\\n{text}" if text else f"[Página {number}]\\n[Sem texto extraível; pode ser necessário OCR]")
-    return "\\n\\n".join(page_text), len(reader.pages)
+        page_text.append(f"[Página {number}]\n{text}" if text else f"[Página {number}]\n[Sem texto extraível; pode ser necessário OCR]")
+    return "\n\n".join(page_text), len(reader.pages)
 
 
 def _public_metadata(metadata: dict) -> dict:
