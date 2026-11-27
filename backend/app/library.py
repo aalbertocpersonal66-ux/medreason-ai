@@ -1,18 +1,28 @@
 import json
 import os
 import re
+import secrets
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pypdf import PdfReader
 from docx import Document
 
 router = APIRouter(prefix="/library", tags=["Biblioteca médica"])
 STORAGE_DIR = Path(os.getenv("LIBRARY_STORAGE_DIR", "/var/data/medreason-library")).resolve()
 MAX_FILE_SIZE = 30 * 1024 * 1024
+LIBRARY_ADMIN_TOKEN = os.getenv("LIBRARY_ADMIN_TOKEN", "").strip()
+
+
+def _authorize(token: str):
+    if not LIBRARY_ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail="Biblioteca protegida: configure LIBRARY_ADMIN_TOKEN nas variáveis de ambiente do backend.")
+    if not secrets.compare_digest(token, LIBRARY_ADMIN_TOKEN):
+        raise HTTPException(status_code=401, detail="Chave de acesso da biblioteca inválida")
+
 ALLOWED_EXTENSIONS = {".pdf", ".docx"}
 
 
@@ -84,7 +94,9 @@ async def upload_document(
     document_type: str = Form("material didático", max_length=60),
     author: str = Form("", max_length=160),
     year: str = Form("", max_length=4),
+    x_library_token: str = Header(default="", alias="X-Library-Token"),
 ):
+    _authorize(x_library_token)
     _ensure_storage()
     original_name = Path(file.filename or "").name
     extension = Path(original_name).suffix.lower()
@@ -148,7 +160,8 @@ async def upload_document(
 
 
 @router.get("/documents")
-def list_documents():
+def list_documents(x_library_token: str = Header(default="", alias="X-Library-Token")):
+    _authorize(x_library_token)
     _ensure_storage()
     documents = []
     for metadata_file in STORAGE_DIR.glob("*.json"):
@@ -162,7 +175,8 @@ def list_documents():
 
 
 @router.get("/documents/{document_id}")
-def get_document(document_id: str):
+def get_document(document_id: str, x_library_token: str = Header(default="", alias="X-Library-Token")):
+    _authorize(x_library_token)
     metadata = _load_metadata(document_id)
     file_path = STORAGE_DIR / metadata["stored_name"]
     if not file_path.is_file():
@@ -175,7 +189,8 @@ def get_document(document_id: str):
 
 
 @router.delete("/documents/{document_id}")
-def delete_document(document_id: str):
+def delete_document(document_id: str, x_library_token: str = Header(default="", alias="X-Library-Token")):
+    _authorize(x_library_token)
     metadata = _load_metadata(document_id)
     (STORAGE_DIR / metadata["stored_name"]).unlink(missing_ok=True)
     _metadata_path(document_id).unlink(missing_ok=True)
