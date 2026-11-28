@@ -8,6 +8,9 @@ services:
     dockerfilePath: Dockerfile
     healthCheckPath: /health
     autoDeploy: true
+    envVars:
+      - key: LLM_API_KEY
+        sync: false
 
   - type: web
     name: medreason-ai-web
