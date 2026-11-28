@@ -18,6 +18,26 @@ class StudyRequest(BaseModel):
     language: Literal["es", "pt"] = "es"
 
 
+@router.get("/diagnostics")
+def study_diagnostics():
+    """Diagnóstico temporário: informa apenas presença/configuração, nunca valores secretos."""
+    api_key = os.getenv("LLM_API_KEY", "").strip()
+    model = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+    base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
+    llm_module_name = get_llm.__module__
+
+    return {
+        "python_running": True,
+        "study_module_loaded": True,
+        "llm_module_loaded": llm_module_name in __import__("sys").modules,
+        "api_key_detected": bool(api_key),
+        "model_configured": bool(model),
+        "base_url_configured": bool(base_url),
+        "model_name": model if model else None,
+        "llm_module": llm_module_name,
+    }
+
+
 @router.get("/status")
 def study_status():
     configured = bool(os.getenv("LLM_API_KEY", "").strip())
