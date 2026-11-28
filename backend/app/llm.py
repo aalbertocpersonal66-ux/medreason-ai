@@ -20,7 +20,7 @@ class OpenAICompatibleLLM:
         if not self.api_key:
             raise RuntimeError("Falta LLM_API_KEY")
         import httpx
-        async with httpx.AsyncClient(timeout=25) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             r=await client.post(self.base_url.rstrip('/')+'/chat/completions',
                 headers={"Authorization":f"Bearer {self.api_key}"},
                 json={"model":self.model,"temperature":0.2,"messages":[
