@@ -11,11 +11,13 @@ from .oral_exam import oral_session
 from .metrics import summarize_attempts
 from .planner import weekly_plan
 from .library import router as library_router
+from .study import router as study_router
 from datetime import date
 from docx import Document
 
 app=FastAPI(title="MedReason AI API",version="0.2.0")
 app.include_router(library_router)
+app.include_router(study_router)
 
 @app.get("/")
 def root():
